@@ -340,7 +340,7 @@ function analizar(){
 }
 
 // ============================
-// 📌 ANÁLISIS NUMÉRICO
+//  ANÁLISIS NUMÉRICO
 // ============================
 
 // BINOMIAL (modelo teórico)
@@ -357,7 +357,7 @@ function normal(x,mu,sigma){
 }
 
 // ============================
-// 📊 GRAFICA + ANALISIS NUMERICO
+// GRAFICA + ANALISIS NUMERICO
 // ============================
 function dibujarGrafica(datos,total){
 
@@ -365,12 +365,12 @@ function dibujarGrafica(datos,total){
 
     let max = Math.max(...datos);
 
-    // 🔴 MEDIA (ANÁLISIS NUMÉRICO)
+    // MEDIA (ANÁLISIS NUMÉRICO)
     let mu=0;
     for(let i=0;i<=n;i++) mu+=i*datos[i];
     mu/=total;
 
-    // 🔴 DESVIACIÓN (ANÁLISIS NUMÉRICO)
+    // DESVIACIÓN (ANÁLISIS NUMÉRICO)
     let sigma=0;
     for(let i=0;i<=n;i++) sigma+=datos[i]*(i-mu)**2;
     sigma=Math.sqrt(sigma/total);
