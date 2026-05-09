@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Pachinko + Análisis Numérico</title>
+
+<style>
+body { margin:0; font-family:Arial; background:#f4f4f4; }
+
+.container {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    gap:20px;
+}
+
+.left { background:white; padding:10px; text-align:center; }
+.right { width:380px; display:flex; flex-direction:column; gap:12px; }
+
+canvas { border:1px solid black; }
+
+button { margin:5px; padding:8px; }
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    background:white;
+    font-size:12px;
+}
+
+th {
+    background:#333;
+    color:white;
+}
+
+th, td {
+    border:1px solid #ccc;
+    padding:6px;
+    text-align:center;
+}
+
+tr:nth-child(even){ background:#f9f9f9; }
+
+#analisis {
+    background:white;
+    padding:8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="left">
+<h2>Pachinko</h2>
+
+<!-- Configuración de intentos -->
+<input type="number" id="intentosInput" placeholder="Intentos (1-4)" min="1" max="4">
+<button onclick="configurarIntentos()">Configurar</button>
+
+<br><br>
+
+<button onclick="tirar()">Tirar bola</button>
+<button onclick="analizar()">Simular 1000</button>
+
+<h3 id="resultado"></h3>
+<h4 id="contador">Tiradas: 0 / 4</h4>
+<h4 id="puntos">Puntos: 0</h4>
+
+<canvas id="canvas" width="500" height="600"></canvas>
+</div>
+
+<div class="right">
+
+<h4>Gráfica</h4>
+<canvas id="grafica" width="340" height="220"></canvas>
+
+<h4>Tabla de Resultados</h4>
+<table>
+<thead>
+<tr>
+<th>k</th>
+<th>Frecuencia</th>
+<th>Probabilidad</th>
+</tr>
+</thead>
+<tbody id="tabla"></tbody>
+</table>
+
+<h4>Tabla de Puntaje</h4>
+<table>
+<thead>
+<tr>
+<th>Posición</th>
+<th>Puntos</th>
+</tr>
+</thead>
+<tbody id="tablaPuntos"></tbody>
+</table>
+
+<h4>Análisis Numérico</h4>
+<div id="analisis"></div>
+
+</div>
+</div>
+
+<script>
+// ============================
+// VARIABLES GENERALES
+// ============================
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const grafica = document.getElementById("grafica");
+const gctx = grafica.getContext("2d");
+
+const n = 10; // niveles del pachinko
+
+const centroX = 250;
+const pasoX = 35;
+const pasoY = 50;
+
+// arrays de resultados
+let resultadosAcumulados = new Array(n+1).fill(0);
+let resultadosSimulacion = new Array(n+1).fill(0);
+
+// control del juego
+let tiradasManuales = 0;
+let maxTiradas = 4;
+let puntos = 0;
+
+// bolas finales visibles
+let bolasFinales = [];
+
+// ============================
+// CONFIGURAR INTENTOS
+// ============================
+function configurarIntentos(){
+    let val = parseInt(document.getElementById("intentosInput").value);
+
+    if(isNaN(val) || val < 1 || val > 4){
+        alert("Ingrese entre 1 y 4");
+        return;
+    }
+
+    maxTiradas = val;
+    tiradasManuales = 0;
+    puntos = 0;
+    resultadosAcumulados.fill(0);
+    bolasFinales = [];
+
+    // 🔹 actualización visual
+    document.getElementById("contador").innerText =
+        "Tiradas: 0 / " + maxTiradas;
+
+    document.getElementById("puntos").innerText = "Puntos: 0";
+
+    actualizarTabla(resultadosAcumulados);
+}
+
+// ============================
+// FUNCIÓN DE PUNTAJE
+// ============================
+function puntosPorResultado(k){
+    if(k===0||k===10)return 4;
+    if(k===1||k===9)return 3;
+    if(k===2||k===8)return 2;
+    if(k===3||k===7)return 1;
+    if(k===4||k===6)return 1;
+    return 0;
+}
+
+// ============================
+// TABLA DE PUNTOS
+// ============================
+function llenarTablaPuntos(){
+    let t = document.getElementById("tablaPuntos");
+    t.innerHTML = "";
+
+    for(let k=0;k<=n;k++){
+        t.innerHTML += `<tr>
+            <td>${k}</td>
+            <td>${puntosPorResultado(k)}</td>
+        </tr>`;
+    }
+}
+
+// ============================
+// GENERAR CAMINO ALEATORIO
+// ============================
+function generarCamino(){
+    let camino = [];
+    let derecha = 0;
+
+    for(let i=0;i<n;i++){
+        let dir = Math.random()<0.5?-1:1;
+        if(dir===1) derecha++;
+        camino.push(dir);
+    }
+
+    return {camino,derecha};
+}
+
+// ============================
+// TIRAR 4 BOLAS
+// ============================
+function tirar(){
+
+    if(tiradasManuales >= maxTiradas){
+        alert("Límite alcanzado");
+        return;
+    }
+
+    tiradasManuales++;
+    bolasFinales = [];
+
+    let bolas = [];
+
+    for(let i=0;i<4;i++){
+        let {camino,derecha} = generarCamino();
+
+        resultadosAcumulados[derecha]++;
+        puntos += puntosPorResultado(derecha);
+
+        bolas.push({camino,derecha});
+    }
+
+    // 🔹 contador estilo imagen
+    document.getElementById("contador").innerText =
+        "Tiradas: " + tiradasManuales + " / " + maxTiradas;
+
+    document.getElementById("puntos").innerText =
+        "Puntos: " + puntos;
+
+    actualizarTabla(resultadosAcumulados);
+    animarMultiples(bolas);
+}
+
+// ============================
+// ANIMACIÓN DE LAS BOLAS
+// ============================
+function animarMultiples(bolas){
+
+    let i = 0;
+
+    function draw(){
+        ctx.clearRect(0,0,500,600);
+        dibujarPines();
+        dibujarBase();
+
+        bolas.forEach((b,idx)=>{
+            let x = centroX;
+            let y = 50;
+
+            for(let j=0;j<i;j++){
+                x += b.camino[j]*pasoX/2;
+                y += pasoY;
+            }
+
+            // 🔹 posición final centrada
+            if(i===n){
+                x = centroX-(n*pasoX/2)+b.derecha*pasoX;
+                y = 50+n*pasoY;
+
+                bolasFinales[idx] = {x,y,color:["red","blue","green","orange"][idx]};
+            }
+
+            ctx.beginPath();
+            ctx.arc(x,y,8,0,Math.PI*2);
+            ctx.fillStyle = ["red","blue","green","orange"][idx];
+            ctx.fill();
+        });
+
+        if(i<=n){
+            i++;
+            setTimeout(draw,150);
+        } else {
+            dibujarFinales();
+        }
+    }
+
+    draw();
+}
+
+// ============================
+// MANTENER BOLAS EN PANTALLA
+// ============================
+function dibujarFinales(){
+    ctx.clearRect(0,0,500,600);
+    dibujarPines();
+    dibujarBase();
+
+    bolasFinales.forEach(b=>{
+        ctx.beginPath();
+        ctx.arc(b.x,b.y,8,0,Math.PI*2);
+        ctx.fillStyle=b.color;
+        ctx.fill();
+    });
+}
+
+// ============================
+// ACTUALIZAR TABLA
+// ============================
+function actualizarTabla(datos){
+    let tabla = document.getElementById("tabla");
+    tabla.innerHTML = "";
+
+    let total = datos.reduce((a,b)=>a+b,0);
+
+    for(let k=0;k<=n;k++){
+        let prob = total?datos[k]/total:0;
+
+        tabla.innerHTML += `<tr>
+            <td>${k}</td>
+            <td>${datos[k]}</td>
+            <td>${prob.toFixed(4)}</td>
+        </tr>`;
+    }
+}
+
+// ============================
+// SIMULACIÓN 1000 (MONTE CARLO)
+// ============================
+function analizar(){
+
+    resultadosSimulacion.fill(0);
+    let total = 1000;
+
+    for(let i=0;i<total;i++){
+        let suma=0;
+        for(let j=0;j<n;j++){
+            if(Math.random()<0.5) suma++;
+        }
+        resultadosSimulacion[suma]++;
+    }
+
+    actualizarTabla(resultadosSimulacion);
+    dibujarGrafica(resultadosSimulacion,total);
+}
+
+// ============================
+// 📌 ANÁLISIS NUMÉRICO
+// ============================
+
+// BINOMIAL (modelo teórico)
+function factorial(x){ return x<=1?1:x*factorial(x-1); }
+
+function binomial(k){
+    return (factorial(n)/(factorial(k)*factorial(n-k)))*Math.pow(0.5,n);
+}
+
+// NORMAL (aproximación)
+function normal(x,mu,sigma){
+    return (1/(sigma*Math.sqrt(2*Math.PI)))*
+           Math.exp(-((x-mu)**2)/(2*sigma**2));
+}
+
+// ============================
+// 📊 GRAFICA + ANALISIS NUMERICO
+// ============================
+function dibujarGrafica(datos,total){
+
+    gctx.clearRect(0,0,340,220);
+
+    let max = Math.max(...datos);
+
+    // 🔴 MEDIA (ANÁLISIS NUMÉRICO)
+    let mu=0;
+    for(let i=0;i<=n;i++) mu+=i*datos[i];
+    mu/=total;
+
+    // 🔴 DESVIACIÓN (ANÁLISIS NUMÉRICO)
+    let sigma=0;
+    for(let i=0;i<=n;i++) sigma+=datos[i]*(i-mu)**2;
+    sigma=Math.sqrt(sigma/total);
+
+    document.getElementById("analisis").innerHTML=
+        "Media: "+mu.toFixed(3)+"<br>"+
+        "Desviación: "+sigma.toFixed(3);
+
+    // =========================
+    // EJES
+    // =========================
+    gctx.beginPath();
+    gctx.moveTo(40,10);
+    gctx.lineTo(40,180);
+    gctx.lineTo(320,180);
+    gctx.stroke();
+
+    // =========================
+    // ESCALA Y (DATOS)
+    // =========================
+    for(let i=0;i<=5;i++){
+        let y = 180 - i*30;
+        let val = Math.round(max*i/5);
+
+        gctx.fillText(val,5,y); 
+    }
+
+    // =========================
+    // BARRAS + DATOS
+    // =========================
+    for(let i=0;i<=n;i++){
+        let h=(datos[i]/max)*150;
+
+        gctx.fillStyle="blue";
+        gctx.fillRect(45+i*22,180-h,18,h);
+
+        gctx.fillStyle="black";
+        gctx.fillText(datos[i],45+i*22,180-h-5);
+
+        gctx.fillText(i,50+i*22,200);
+    }
+
+    // =========================
+    // CURVA NORMAL
+    // =========================
+    gctx.beginPath();
+    gctx.strokeStyle="red";
+
+    for(let x=0;x<=n;x+=0.1){
+        let y=normal(x,mu,sigma)*total;
+        let px=45+x*22;
+        let py=180-(y/max)*150;
+
+        if(x===0) gctx.moveTo(px,py);
+        else gctx.lineTo(px,py);
+    }
+    gctx.stroke();
+
+    // =========================
+    // CURVA BINOMIAL
+    // =========================
+    gctx.beginPath();
+    gctx.strokeStyle="green";
+
+    for(let x=0;x<=n;x++){
+        let y=binomial(x)*total;
+        let px=45+x*22;
+        let py=180-(y/max)*150;
+
+        if(x===0) gctx.moveTo(px,py);
+        else gctx.lineTo(px,py);
+    }
+    gctx.stroke();
+
+    // =========================
+    // TÍTULOS DE EJES
+    // =========================
+    gctx.fillText("Frecuencia",5,10);
+    gctx.fillText("k (posición final)",120,215);
+}
+
+// ============================
+// DIBUJO BASE
+// ============================
+function dibujarPines(){
+    for(let f=0;f<n;f++){
+        for(let c=0;c<=f;c++){
+            let x=centroX-(f*pasoX/2)+c*pasoX;
+            let y=50+f*pasoY;
+            ctx.beginPath();
+            ctx.arc(x,y,4,0,Math.PI*2);
+            ctx.fill();
+        }
+    }
+}
+
+function dibujarBase(){
+    let baseY=50+n*pasoY;
+
+    for(let k=0;k<=n;k++){
+        let x=centroX-(n*pasoX/2)+k*pasoX;
+        ctx.beginPath();
+        ctx.moveTo(x,baseY);
+        ctx.lineTo(x,baseY+30);
+        ctx.stroke();
+        ctx.fillText(k,x-5,baseY+45);
+    }
+}
+
+// INIT
+llenarTablaPuntos();
+</script>
+
+</body>
+</html>
